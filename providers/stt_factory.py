@@ -48,10 +48,11 @@ def get_stt() -> stt_module.STT:
     elif provider == "elevenlabs":
         if elevenlabs_plugin is None:
             raise ImportError("pip install livekit-plugins-elevenlabs")
-        logger.info("🎤 STT: ElevenLabs Scribe")
+        lang_code = language.split("-")[0]  # bn-BD -> bn
+        logger.info(f"🎤 STT: ElevenLabs Scribe (language={lang_code})")
         return elevenlabs_plugin.STT(
             api_key=config.eleven_api_key or None,
-            language=language.split("-")[0],
+            language_code=lang_code,
         )
 
     elif provider == "deepgram":

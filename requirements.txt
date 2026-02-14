@@ -27,6 +27,11 @@ livekit-plugins-silero~=1.4
 # Turn Detector: Semantic end-of-turn detection (local, free)
 livekit-plugins-turn-detector~=1.4
 
+# === Google Sheets CRM + Calendar Integration ===
+gspread>=6.0
+google-auth>=2.0
+google-api-python-client>=2.0
+
 # === Utilities ===
 python-dotenv>=1.0
 aiohttp>=3.9

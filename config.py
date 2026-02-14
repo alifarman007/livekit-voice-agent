@@ -28,6 +28,12 @@ class Config:
     google_credentials: str = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
+    # Google Sheets CRM
+    google_sheet_id: str = os.getenv("GOOGLE_SHEET_ID", "")
+
+    # Google Calendar
+    google_calendar_id: str = os.getenv("GOOGLE_CALENDAR_ID", "")
+
     # OpenAI
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
@@ -57,7 +63,7 @@ class Config:
     custom_llm_url: str = os.getenv("CUSTOM_LLM_URL", "http://localhost:8003/v1")
 
     # Google Cloud TTS voice options
-    google_tts_voice: str = os.getenv("GOOGLE_TTS_VOICE", "bn-BD-Wavenet-A")
+    google_tts_voice: str = os.getenv("GOOGLE_TTS_VOICE", "bn-IN-Chirp3-HD-Kore")
     google_tts_speaking_rate: float = float(os.getenv("GOOGLE_TTS_SPEAKING_RATE", "1.0"))
     google_tts_pitch: float = float(os.getenv("GOOGLE_TTS_PITCH", "0.0"))
 
@@ -77,6 +83,8 @@ class Config:
         print(f"  Language     : {self.language}")
         print(f"  Agent Mode   : {self.agent_mode}")
         print(f"  LiveKit URL  : {self.livekit_url}")
+        print(f"  Google Sheet : {'✅ Connected' if self.google_sheet_id else '❌ Not set'}")
+        print(f"  Google Cal   : {'✅ Connected' if self.google_calendar_id else '❌ Not set'}")
         print("=" * 50 + "\n")
 
 

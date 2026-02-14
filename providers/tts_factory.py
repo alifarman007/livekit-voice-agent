@@ -29,6 +29,7 @@ logger = logging.getLogger("voice-agent.tts")
 def _extract_language_from_voice(voice_name: str, fallback: str) -> str:
     """Extract language code from voice name like 'bn-IN-Chirp3-HD-Kore' -> 'bn-IN'.
     Falls back to the provided fallback language if extraction fails."""
+    # Match patterns like: bn-IN-Chirp3-HD-Kore, en-US-Wavenet-A, etc.
     match = re.match(r'^([a-z]{2}-[A-Z]{2})', voice_name)
     if match:
         return match.group(1)
@@ -73,12 +74,16 @@ def get_tts() -> tts_module.TTS:
     elif provider == "elevenlabs":
         if elevenlabs_plugin is None:
             raise ImportError("pip install livekit-plugins-elevenlabs")
-        logger.info(f"🔊 TTS: ElevenLabs ({config.eleven_model})")
+        # ElevenLabs uses ISO 639-3 codes: bn -> ben, en -> eng, hi -> hin
+        LANG_MAP = {"bn": "ben", "en": "eng", "hi": "hin", "ar": "ara", "ur": "urd"}
+        lang_short = config.language.split("-")[0]
+        lang_code = LANG_MAP.get(lang_short, lang_short)
+        logger.info(f"🔊 TTS: ElevenLabs ({config.eleven_model}, voice={config.eleven_voice_id}, lang={lang_code})")
         return elevenlabs_plugin.TTS(
             api_key=config.eleven_api_key or None,
             voice_id=config.eleven_voice_id,
             model=config.eleven_model,
-            language=config.language.split("-")[0],
+            language=lang_code,
         )
 
     elif provider == "openai":
@@ -104,12 +109,9 @@ def get_tts() -> tts_module.TTS:
         logger.warning(
             "⚠️  Custom TTS not yet implemented. Using Google Cloud TTS as fallback."
         )
-        tts_language = _extract_language_from_voice(
-            config.google_tts_voice, config.language
-        )
         return google_plugin.TTS(
             voice_name=config.google_tts_voice,
-            language=tts_language,
+            language=config.language,
             credentials_file=config.google_credentials,
         )
 
