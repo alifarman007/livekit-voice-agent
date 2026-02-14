@@ -3,6 +3,7 @@ Bangla Voice Agent — Main Entry Point
 =====================================
 Usage:
   Console mode (mic/speaker):  python agent.py console
+  Room mode (dev/playground):  python agent.py dev
   Production:                  python agent.py start
 """
 
@@ -15,6 +16,9 @@ from livekit.agents import (
     Agent,
     AgentServer,
     AgentSession,
+    AudioConfig,
+    BackgroundAudioPlayer,
+    BuiltinAudioClip,
     JobContext,
     RunContext,
     UserStateChangedEvent,
@@ -93,6 +97,57 @@ ALL_TOOLS = [
     end_call,
 ]
 
+# ═══════════════════════════════════════════════════════
+# BACKGROUND AUDIO CLIPS (from LiveKit built-in library)
+# ═══════════════════════════════════════════════════════
+AUDIO_CLIPS = {
+    "office": BuiltinAudioClip.OFFICE_AMBIENCE,
+    "city": BuiltinAudioClip.CITY_AMBIENCE,
+    "forest": BuiltinAudioClip.FOREST_AMBIENCE,
+    "crowd": BuiltinAudioClip.CROWDED_ROOM,
+    "typing": BuiltinAudioClip.KEYBOARD_TYPING,
+    "typing2": BuiltinAudioClip.KEYBOARD_TYPING2,
+    "hold_music": BuiltinAudioClip.HOLD_MUSIC,
+}
+
+
+def _build_background_audio() -> BackgroundAudioPlayer | None:
+    """Build BackgroundAudioPlayer from .env config. Returns None if disabled."""
+    if not config.background_audio_enabled:
+        logger.info("🔇 Background audio: DISABLED")
+        return None
+
+    # Ambient sound (loops continuously)
+    ambient_clip = AUDIO_CLIPS.get(config.background_audio_type)
+    ambient = None
+    if ambient_clip:
+        ambient = AudioConfig(
+            source=ambient_clip,
+            volume=config.background_audio_volume,
+        )
+        logger.info(
+            f"🔊 Background audio: {config.background_audio_type} "
+            f"(volume: {config.background_audio_volume})"
+        )
+
+    # Thinking sound (plays while agent is processing)
+    thinking_clip = AUDIO_CLIPS.get(config.thinking_sound_type)
+    thinking = None
+    if config.thinking_sound_enabled and thinking_clip:
+        thinking = AudioConfig(
+            source=thinking_clip,
+            volume=config.thinking_sound_volume,
+        )
+        logger.info(
+            f"💭 Thinking sound: {config.thinking_sound_type} "
+            f"(volume: {config.thinking_sound_volume})"
+        )
+
+    return BackgroundAudioPlayer(
+        ambient_sound=ambient,
+        thinking_sound=thinking,
+    )
+
 
 class BanglaVoiceAgent(Agent):
     def __init__(self) -> None:
@@ -114,11 +169,6 @@ async def entrypoint(ctx: JobContext):
 
     # ═══════════════════════════════════════════════════════
     # SILENCE HANDLING — makes the agent behave like a human
-    # ═══════════════════════════════════════════════════════
-    # user_away_timeout: seconds of mutual silence before
-    #   the framework marks user as "away"
-    # We listen for that event and make the agent speak up,
-    # just like a real receptionist would.
     # ═══════════════════════════════════════════════════════
 
     session = AgentSession(
@@ -145,6 +195,7 @@ async def entrypoint(ctx: JobContext):
     ]
 
     # Capture the running event loop BEFORE callbacks fire
+    # (Fixes asyncio crash on Windows Python 3.11+)
     loop = asyncio.get_running_loop()
 
     @session.on("user_state_changed")
@@ -179,6 +230,15 @@ async def entrypoint(ctx: JobContext):
         room=ctx.room,
         agent=BanglaVoiceAgent(),
     )
+
+    # ═══════════════════════════════════════════════════════
+    # BACKGROUND AUDIO — office ambience + thinking sounds
+    # Only works in room mode (dev/start), NOT console mode
+    # ═══════════════════════════════════════════════════════
+    bg_audio = _build_background_audio()
+    if bg_audio:
+        await bg_audio.start(room=ctx.room, agent_session=session)
+        logger.info("🔊 Background audio started")
 
     # First greeting — always Islamic salam
     await session.generate_reply(

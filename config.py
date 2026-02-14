@@ -67,6 +67,14 @@ class Config:
     google_tts_speaking_rate: float = float(os.getenv("GOOGLE_TTS_SPEAKING_RATE", "1.0"))
     google_tts_pitch: float = float(os.getenv("GOOGLE_TTS_PITCH", "0.0"))
 
+    # Background Audio (room mode only — not console)
+    background_audio_enabled: bool = os.getenv("BACKGROUND_AUDIO", "true").lower() == "true"
+    background_audio_type: str = os.getenv("BACKGROUND_AUDIO_TYPE", "office")
+    background_audio_volume: float = float(os.getenv("BACKGROUND_AUDIO_VOLUME", "0.5"))
+    thinking_sound_enabled: bool = os.getenv("THINKING_SOUND", "true").lower() == "true"
+    thinking_sound_type: str = os.getenv("THINKING_SOUND_TYPE", "typing")
+    thinking_sound_volume: float = float(os.getenv("THINKING_SOUND_VOLUME", "0.3"))
+
     # LiveKit
     livekit_url: str = os.getenv("LIVEKIT_URL", "ws://localhost:7880")
     livekit_api_key: str = os.getenv("LIVEKIT_API_KEY", "devkey")
@@ -85,6 +93,8 @@ class Config:
         print(f"  LiveKit URL  : {self.livekit_url}")
         print(f"  Google Sheet : {'✅ Connected' if self.google_sheet_id else '❌ Not set'}")
         print(f"  Google Cal   : {'✅ Connected' if self.google_calendar_id else '❌ Not set'}")
+        print(f"  Background   : {'🔊 ' + self.background_audio_type if self.background_audio_enabled else '🔇 OFF'}")
+        print(f"  Thinking Snd : {'💭 ' + self.thinking_sound_type if self.thinking_sound_enabled else '🔇 OFF'}")
         print("=" * 50 + "\n")
 
 
