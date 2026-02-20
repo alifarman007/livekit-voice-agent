@@ -1,14 +1,39 @@
-.env
+
+# Python
+.venv/
 __pycache__/
 *.pyc
-.venv/
-venv/
 *.egg-info/
+
+# Credentials
+*.json
+!package.json
+!pnpm-lock.yaml
+!tsconfig.json
+!next-env.d.ts
+!postcss.config.js
+!tailwind.config.js
+!next.config.js
+!renovate.json
+.env
+.env.*
+.env.local
+
+# Node
+node_modules/
+
+# Binaries
+*.exe
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Build
+.next/
 dist/
 build/
-.livekit/
-*.wav
-*.mp3
-
-gcloud-key.json
-*.json

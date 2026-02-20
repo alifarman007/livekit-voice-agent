@@ -1,0 +1,14 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.livekit/
+*.wav
+*.mp3
+
+gcloud-key.json
+*.json
