@@ -194,9 +194,11 @@ async def entrypoint(ctx: JobContext):
         "কলার উত্তর দিচ্ছে না। ভদ্রভাবে বিদায় নাও: 'ঠিক আছে, মনে হচ্ছে লাইনে সমস্যা হচ্ছে। আপনি আবার কল দিবেন। আসসালামু আলাইকুম।' — তারপর end_call টুল কল করো।",
     ]
 
-    # Capture the running event loop BEFORE callbacks fire
-    # (Fixes asyncio crash on Windows Python 3.11+)
-    loop = asyncio.get_running_loop()
+    # ─────────────────────────────────────────────────────
+    # FIX: In LiveKit Agents v1.4.x, session.generate_reply()
+    # returns a SpeechHandle (NOT a coroutine), so we call it
+    # directly — no asyncio.create_task / loop.create_task.
+    # ─────────────────────────────────────────────────────
 
     @session.on("user_state_changed")
     def _on_user_state(ev: UserStateChangedEvent):
@@ -209,11 +211,8 @@ async def entrypoint(ctx: JobContext):
             prompt = NUDGE_PROMPTS[idx]
             nudge_count += 1
             logger.info(f"🔇 Silence detected — nudge #{nudge_count}")
-            loop.call_soon(
-                lambda p=prompt: loop.create_task(
-                    session.generate_reply(instructions=p)
-                )
-            )
+            # generate_reply() returns SpeechHandle synchronously — just call it
+            session.generate_reply(instructions=prompt)
 
     @session.on("user_input_transcribed")
     def _on_user_spoke(ev: UserInputTranscribedEvent):
@@ -240,9 +239,14 @@ async def entrypoint(ctx: JobContext):
         await bg_audio.start(room=ctx.room, agent_session=session)
         logger.info("🔊 Background audio started")
 
-    # First greeting — always Islamic salam
+    # First greeting — always Islamic salam, then ask for name
     await session.generate_reply(
-        instructions="আসসালামু আলাইকুম বলে কলারকে সালাম দাও। নিজের পরিচয় দাও — তুমি নুসরাত, এই কোম্পানির রিসেপশনিস্ট। জিজ্ঞেস করো কিভাবে সাহায্য করতে পারো। ২ লাইনের বেশি বলো না।"
+        instructions=(
+            "আসসালামু আলাইকুম বলে কলারকে সালাম দাও। "
+            "নিজের পরিচয় দাও — তুমি নুসরাত, এই কোম্পানির রিসেপশনিস্ট। "
+            "তারপর কলারের নাম জিজ্ঞেস করো। "
+            "২ লাইনের বেশি বলো না।"
+        )
     )
 
     logger.info("🎙️ Agent session started — silence monitor active")

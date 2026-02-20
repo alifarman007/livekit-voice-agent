@@ -189,7 +189,9 @@ async def update_customer_notes(
     phone_number: str,
     notes: str,
 ) -> dict:
-    """Update notes for a customer in the Google Sheets CRM. Creates a new record if not found.
+    """Add new notes to a customer's record in the Google Sheets CRM.
+    New notes are APPENDED to existing notes — nothing is deleted.
+    Creates a new record if the customer is not found.
 
     Args:
         phone_number: Customer's phone number
@@ -203,9 +205,17 @@ async def update_customer_notes(
         today = datetime.now().strftime("%Y-%m-%d")
 
         if row_num:
-            worksheet.update_cell(row_num, 5, today)
-            worksheet.update_cell(row_num, 6, notes)
-            logger.info(f"📝 Updated customer at row {row_num}")
+            # ── FIX: APPEND to existing notes instead of overwriting ──
+            # This preserves ticket numbers and previous notes
+            existing_notes = worksheet.cell(row_num, 6).value or ""
+            if existing_notes:
+                updated_notes = f"{existing_notes}\n{notes}"
+            else:
+                updated_notes = notes
+
+            worksheet.update_cell(row_num, 5, today)       # Last Interaction
+            worksheet.update_cell(row_num, 6, updated_notes)  # Notes (appended)
+            logger.info(f"📝 Appended notes to customer at row {row_num}")
             return {"success": True, "message": "Customer notes updated."}
         else:
             new_row = [

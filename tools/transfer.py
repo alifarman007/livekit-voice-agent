@@ -68,12 +68,26 @@ async def end_call(
     call_summary: str,
 ) -> dict:
     """End the current call gracefully with a summary.
+    Call this when the caller says goodbye, wants to hang up, or the conversation is complete.
 
     Args:
         reason: Why the call is ending (e.g., "completed", "caller_request", "issue_resolved")
         call_summary: Brief summary of what was discussed and any actions taken
     """
     logger.info(f"📞 Call ending: {reason}")
+    logger.info(f"📞 Call summary: {call_summary}")
+
+    # ─────────────────────────────────────────────────────
+    # PRODUCTION: When SIP trunk is connected, uncomment
+    # the lines below to actually disconnect the call:
+    #
+    # import asyncio
+    # session = context.session
+    # async def _delayed_disconnect():
+    #     await asyncio.sleep(2)  # Let goodbye audio finish
+    #     await session.aclose()
+    # asyncio.ensure_future(_delayed_disconnect())
+    # ─────────────────────────────────────────────────────
 
     return {
         "success": True,
