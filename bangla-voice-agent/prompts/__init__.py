@@ -1,6 +1,14 @@
 """
 Agent Prompts — System instructions for different agent modes.
 Each prompt defines the agent's personality, language, capabilities, and rules.
+
+Available modes (set AGENT_MODE in .env):
+  receptionist  → Front desk, routing, registration (default)
+  appointment   → Focused on scheduling
+  support       → Focused on tickets & troubleshooting
+  sales         → Outbound sales, lead qualification
+  survey        → Customer satisfaction surveys
+  collections   → Payment reminders, billing
 """
 
 from datetime import datetime
@@ -8,11 +16,17 @@ from datetime import datetime
 from prompts.receptionist import RECEPTIONIST_PROMPT
 from prompts.appointment import APPOINTMENT_PROMPT
 from prompts.support import SUPPORT_PROMPT
+from prompts.sales import SALES_PROMPT
+from prompts.survey import SURVEY_PROMPT
+from prompts.collections import COLLECTIONS_PROMPT
 
 PROMPTS = {
     "receptionist": RECEPTIONIST_PROMPT,
     "appointment": APPOINTMENT_PROMPT,
     "support": SUPPORT_PROMPT,
+    "sales": SALES_PROMPT,
+    "survey": SURVEY_PROMPT,
+    "collections": COLLECTIONS_PROMPT,
 }
 
 
@@ -20,7 +34,7 @@ def get_prompt(mode: str, company_name: str = "আমাদের কোম্�
     """Get the system prompt for the given agent mode.
 
     Args:
-        mode: Agent mode from .env (receptionist, appointment, support)
+        mode: Agent mode from .env (receptionist, appointment, support, sales, survey, collections)
         company_name: Company name to insert into prompts
     """
     if mode not in PROMPTS:

@@ -1,11 +1,14 @@
 """
 LLM Provider Factory
+═══════════════════════════════════════════════════
 Change LLM_PROVIDER in .env to swap:
-  gemini    -> Google Gemini (free tier 500 req/day)
-  openai    -> OpenAI GPT models (requires OPENAI_API_KEY)
-  anthropic -> Claude models (requires ANTHROPIC_API_KEY)
-  groq      -> Groq ultra-fast inference (requires GROQ_API_KEY)
-  custom    -> Any OpenAI-compatible endpoint
+  gemini    -> Google Gemini (best Bengali, cheapest)
+  openai    -> OpenAI GPT models
+  anthropic -> Anthropic Claude models
+  groq      -> Groq ultra-fast inference
+  deepseek  -> DeepSeek (excellent Bengali, very cheap)
+  custom    -> Any OpenAI-compatible API endpoint
+              (Ollama, vLLM, LM Studio, Together AI, Fireworks, etc.)
 """
 
 from __future__ import annotations
@@ -32,6 +35,11 @@ def get_llm() -> llm_module.LLM:
 
     provider = config.llm_provider.lower()
 
+    # ─────────────────────────────────────
+    # Google Gemini
+    # Best Bengali understanding, cheapest
+    # Requires: GOOGLE_API_KEY
+    # ─────────────────────────────────────
     if provider == "gemini":
         logger.info(f"🧠 LLM: Google Gemini ({config.gemini_model})")
         return google_plugin.LLM(
@@ -39,6 +47,11 @@ def get_llm() -> llm_module.LLM:
             api_key=config.google_api_key or None,
         )
 
+    # ─────────────────────────────────────
+    # OpenAI GPT
+    # Strong Bengali, reliable
+    # Requires: OPENAI_API_KEY
+    # ─────────────────────────────────────
     elif provider == "openai":
         logger.info(f"🧠 LLM: OpenAI ({config.openai_model})")
         return openai_plugin.LLM(
@@ -46,15 +59,28 @@ def get_llm() -> llm_module.LLM:
             api_key=config.openai_api_key or None,
         )
 
+    # ─────────────────────────────────────
+    # Anthropic Claude
+    # Strong Bengali, great reasoning
+    # Requires: ANTHROPIC_API_KEY
+    # ─────────────────────────────────────
     elif provider == "anthropic":
         if anthropic_plugin is None:
-            raise ImportError("pip install livekit-plugins-anthropic")
+            raise ImportError(
+                "Anthropic LLM requires livekit-plugins-anthropic. "
+                "Install: pip install livekit-plugins-anthropic"
+            )
         logger.info(f"🧠 LLM: Anthropic Claude ({config.anthropic_model})")
         return anthropic_plugin.LLM(
             model=config.anthropic_model,
             api_key=config.anthropic_api_key or None,
         )
 
+    # ─────────────────────────────────────
+    # Groq (ultra-fast inference)
+    # OpenAI-compatible API, free tier
+    # Requires: GROQ_API_KEY
+    # ─────────────────────────────────────
     elif provider == "groq":
         logger.info(f"🧠 LLM: Groq ({config.groq_model})")
         return openai_plugin.LLM(
@@ -63,16 +89,47 @@ def get_llm() -> llm_module.LLM:
             base_url="https://api.groq.com/openai/v1",
         )
 
-    elif provider == "custom":
-        logger.info(f"🧠 LLM: Custom endpoint ({config.custom_llm_url})")
+    # ─────────────────────────────────────
+    # DeepSeek
+    # Excellent Bengali, very cheap, OpenAI-compatible
+    # Requires: DEEPSEEK_API_KEY
+    # ─────────────────────────────────────
+    elif provider == "deepseek":
+        logger.info(f"🧠 LLM: DeepSeek ({config.deepseek_model})")
+        if not config.deepseek_api_key:
+            raise ValueError(
+                "DeepSeek requires DEEPSEEK_API_KEY in .env. "
+                "Get one at https://platform.deepseek.com/"
+            )
         return openai_plugin.LLM(
-            model="default",
-            api_key="not-needed",
+            model=config.deepseek_model,
+            api_key=config.deepseek_api_key,
+            base_url=config.deepseek_base_url,
+        )
+
+    # ─────────────────────────────────────
+    # Custom OpenAI-compatible endpoint
+    # Works with: Ollama, vLLM, LM Studio,
+    # Together AI, Fireworks, OpenRouter, etc.
+    #
+    # Set in .env:
+    #   CUSTOM_LLM_URL=http://localhost:11434/v1   (Ollama)
+    #   CUSTOM_LLM_MODEL=llama3.1
+    #   CUSTOM_LLM_API_KEY=not-needed
+    # ─────────────────────────────────────
+    elif provider == "custom":
+        logger.info(
+            f"🧠 LLM: Custom endpoint ({config.custom_llm_url}, "
+            f"model={config.custom_llm_model})"
+        )
+        return openai_plugin.LLM(
+            model=config.custom_llm_model,
+            api_key=config.custom_llm_api_key,
             base_url=config.custom_llm_url,
         )
 
     else:
         raise ValueError(
             f"Unknown LLM_PROVIDER: '{provider}'. "
-            f"Valid options: gemini, openai, anthropic, groq, custom"
+            f"Valid options: gemini, openai, anthropic, groq, deepseek, custom"
         )

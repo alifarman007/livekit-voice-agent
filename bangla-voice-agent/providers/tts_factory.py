@@ -1,5 +1,14 @@
 """
 TTS Provider Factory
+═══════════════════════════════════════════════════
+Change TTS_PROVIDER in .env to swap:
+  google      -> Google Cloud Chirp3-HD (good Bengali, cheapest)
+  gemini      -> Gemini TTS (expressive, experimental)
+  azure       -> Azure Neural TTS (dedicated bn-BD voice)
+  elevenlabs  -> ElevenLabs (best quality, expensive)
+  openai      -> OpenAI TTS (tone control, limited Bengali)
+  cartesia    -> Cartesia Sonic-3 (ultra-low latency)
+  custom      -> Any custom TTS endpoint
 """
 
 from __future__ import annotations
@@ -21,6 +30,11 @@ try:
 except ImportError:
     cartesia_plugin = None
 
+try:
+    from livekit.plugins import azure as azure_plugin
+except ImportError:
+    azure_plugin = None
+
 from config import config
 
 logger = logging.getLogger("voice-agent.tts")
@@ -29,7 +43,6 @@ logger = logging.getLogger("voice-agent.tts")
 def _extract_language_from_voice(voice_name: str, fallback: str) -> str:
     """Extract language code from voice name like 'bn-IN-Chirp3-HD-Kore' -> 'bn-IN'.
     Falls back to the provided fallback language if extraction fails."""
-    # Match patterns like: bn-IN-Chirp3-HD-Kore, en-US-Wavenet-A, etc.
     match = re.match(r'^([a-z]{2}-[A-Z]{2})', voice_name)
     if match:
         return match.group(1)
@@ -41,9 +54,12 @@ def get_tts() -> tts_module.TTS:
 
     provider = config.tts_provider.lower()
 
+    # ─────────────────────────────────────
+    # Google Cloud TTS (Chirp3-HD)
+    # Good Bengali voice, cheapest option (~$4/1M chars)
+    # Requires: GOOGLE_APPLICATION_CREDENTIALS
+    # ─────────────────────────────────────
     if provider == "google":
-        # Auto-detect language from voice name to avoid mismatch
-        # (e.g. LANGUAGE=bn-BD but voice=bn-IN-Chirp3-HD-Kore needs bn-IN)
         tts_language = _extract_language_from_voice(
             config.google_tts_voice, config.language
         )
@@ -64,6 +80,10 @@ def get_tts() -> tts_module.TTS:
             credentials_file=creds_file,
         )
 
+    # ─────────────────────────────────────
+    # Gemini TTS (experimental, expressive)
+    # Requires: GOOGLE_API_KEY
+    # ─────────────────────────────────────
     elif provider == "gemini":
         logger.info("🔊 TTS: Gemini TTS (expressive)")
         return google_plugin.TTS(
@@ -71,14 +91,50 @@ def get_tts() -> tts_module.TTS:
             api_key=config.google_api_key or None,
         )
 
+    # ─────────────────────────────────────
+    # Azure Neural TTS
+    # Dedicated Bengali voices (bn-BD-NabanitaNeural, bn-BD-PradeepNeural)
+    # Requires: AZURE_SPEECH_KEY, AZURE_SPEECH_REGION
+    # ─────────────────────────────────────
+    elif provider == "azure":
+        if azure_plugin is None:
+            raise ImportError(
+                "Azure TTS requires livekit-plugins-azure. "
+                "Install: pip install livekit-plugins-azure"
+            )
+        if not config.azure_speech_key:
+            raise ValueError(
+                "Azure TTS requires AZURE_SPEECH_KEY and AZURE_SPEECH_REGION in .env"
+            )
+        logger.info(
+            f"🔊 TTS: Azure Neural ({config.azure_tts_voice}, "
+            f"region={config.azure_speech_region})"
+        )
+        return azure_plugin.TTS(
+            speech_key=config.azure_speech_key,
+            speech_region=config.azure_speech_region,
+            voice=config.azure_tts_voice,
+        )
+
+    # ─────────────────────────────────────
+    # ElevenLabs
+    # Best voice quality, expensive (~$120/1M chars)
+    # Requires: ELEVEN_API_KEY
+    # ─────────────────────────────────────
     elif provider == "elevenlabs":
         if elevenlabs_plugin is None:
-            raise ImportError("pip install livekit-plugins-elevenlabs")
-        # ElevenLabs uses ISO 639-3 codes: bn -> ben, en -> eng, hi -> hin
+            raise ImportError(
+                "ElevenLabs TTS requires livekit-plugins-elevenlabs. "
+                "Install: pip install livekit-plugins-elevenlabs"
+            )
+        # ElevenLabs uses ISO 639-3 codes: bn -> ben
         LANG_MAP = {"bn": "ben", "en": "eng", "hi": "hin", "ar": "ara", "ur": "urd"}
         lang_short = config.language.split("-")[0]
         lang_code = LANG_MAP.get(lang_short, lang_short)
-        logger.info(f"🔊 TTS: ElevenLabs ({config.eleven_model}, voice={config.eleven_voice_id}, lang={lang_code})")
+        logger.info(
+            f"🔊 TTS: ElevenLabs ({config.eleven_model}, "
+            f"voice={config.eleven_voice_id}, lang={lang_code})"
+        )
         return elevenlabs_plugin.TTS(
             api_key=config.eleven_api_key or None,
             voice_id=config.eleven_voice_id,
@@ -86,6 +142,11 @@ def get_tts() -> tts_module.TTS:
             language=lang_code,
         )
 
+    # ─────────────────────────────────────
+    # OpenAI TTS
+    # Tone-controlled, limited Bengali
+    # Requires: OPENAI_API_KEY
+    # ─────────────────────────────────────
     elif provider == "openai":
         logger.info("🔊 TTS: OpenAI (gpt-4o-mini-tts with tone control)")
         return openai_plugin.TTS(
@@ -95,9 +156,17 @@ def get_tts() -> tts_module.TTS:
             "Match the emotional context of what you are saying.",
         )
 
+    # ─────────────────────────────────────
+    # Cartesia Sonic-3
+    # Ultra-low latency, limited Bengali
+    # Requires: CARTESIA_API_KEY
+    # ─────────────────────────────────────
     elif provider == "cartesia":
         if cartesia_plugin is None:
-            raise ImportError("pip install livekit-plugins-cartesia")
+            raise ImportError(
+                "Cartesia TTS requires livekit-plugins-cartesia. "
+                "Install: pip install livekit-plugins-cartesia"
+            )
         logger.info("🔊 TTS: Cartesia Sonic-3 (ultra-low latency)")
         return cartesia_plugin.TTS(
             api_key=config.cartesia_api_key or None,
@@ -105,6 +174,10 @@ def get_tts() -> tts_module.TTS:
             language=config.language.split("-")[0],
         )
 
+    # ─────────────────────────────────────
+    # Custom TTS endpoint
+    # For self-hosted or local models
+    # ─────────────────────────────────────
     elif provider == "custom":
         logger.warning(
             "⚠️  Custom TTS not yet implemented. Using Google Cloud TTS as fallback."
@@ -118,5 +191,5 @@ def get_tts() -> tts_module.TTS:
     else:
         raise ValueError(
             f"Unknown TTS_PROVIDER: '{provider}'. "
-            f"Valid options: google, gemini, elevenlabs, openai, cartesia, custom"
+            f"Valid options: google, gemini, azure, elevenlabs, openai, cartesia, custom"
         )
