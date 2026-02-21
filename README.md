@@ -2,7 +2,7 @@
 
 A self-hosted, real-time Bengali (বাংলা) voice AI agent for call center operations in Bangladesh. Built on [LiveKit Agents](https://docs.livekit.io/agents/) framework, this agent handles customer calls with natural Bengali conversation — greeting callers with Islamic salam, collecting information, booking appointments, creating support tickets, and routing calls.
 
-The agent persona is **Nusrat** (নুসরাত), a Bangladeshi receptionist who speaks natural Bengali, uses culturally appropriate greetings, and handles front-desk duties like a real human receptionist.
+The agent persona is **Nusrat** (নুসরাত), a Bangladeshi receptionist who speaks natural Bengali, uses culturally appropriate greetings, and handles front-desk duties like a real human receptionist. She can switch between **6 different agent modes** — receptionist, sales, survey, collections, appointment, and support — with a single config change.
 
 ---
 
@@ -13,8 +13,8 @@ Caller speaks Bengali
         │
         ▼
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│  Google STT  │────▶│  Gemini LLM  │────▶│  Google TTS  │
-│  (bn-BD)     │     │  (3.0 Flash) │     │  (Chirp3-HD) │
+│    STT       │────▶│     LLM      │────▶│     TTS      │
+│  (5 options) │     │  (6 options) │     │  (7 options) │
 └──────────────┘     └──────┬───────┘     └──────────────┘
                             │                      │
                      Tool Calls                    │
@@ -32,13 +32,15 @@ The agent uses LiveKit's room-based architecture for real-time bidirectional aud
 ## ✨ Features
 
 - **Natural Bengali conversation** — culturally appropriate Islamic greetings, colloquial filler words ("জি", "আচ্ছা", "বলুন"), and short phone-appropriate responses
+- **6 agent modes** — receptionist, sales, survey, collections, appointment, support — switch via `.env`
 - **11 function tools** — real integrations with Google Sheets CRM and Google Calendar
+- **18 provider combinations** — 5 STT × 6 LLM × 7 TTS, all swappable via `.env`
 - **Smart call flow** — automatic name/phone collection → customer lookup → registration → service
 - **Silence detection** — 3-tier nudge system that speaks up like a human when the caller goes silent
 - **Goodbye detection** — recognizes Bengali farewell phrases ("আচ্ছা রাখি", "রাখি তাহলে") and ends calls gracefully
 - **Background audio** — office ambience and keyboard typing sounds for realism
-- **Swappable providers** — change STT/LLM/TTS providers via `.env` without touching code
 - **Dynamic date awareness** — agent always knows today's date for accurate appointment scheduling
+- **Custom LLM support** — plug in any OpenAI-compatible API (Ollama, vLLM, LM Studio, Together AI, etc.)
 
 ---
 
@@ -51,19 +53,23 @@ livekit-voice-agent/
 │   ├── agent.py                 # Entry point — session setup, silence handling
 │   ├── config.py                # Central config — reads .env, exposes typed settings
 │   ├── requirements.txt         # Python dependencies
+│   ├── .env.example             # Template with all provider configs
 │   ├── Dockerfile               # Container deployment
 │   │
-│   ├── prompts/                 # 🗣️ System prompts (agent personality)
+│   ├── prompts/                 # 🗣️ System prompts (agent personalities)
 │   │   ├── __init__.py          # Prompt loader with dynamic date injection
-│   │   ├── receptionist.py      # Main receptionist persona (Nusrat)
+│   │   ├── receptionist.py      # Front desk — routing, registration
+│   │   ├── sales.py             # Outbound sales — lead qualification
+│   │   ├── survey.py            # Customer satisfaction — NPS scoring
+│   │   ├── collections.py       # Payment reminders — billing inquiries
 │   │   ├── appointment.py       # Appointment-focused mode
 │   │   └── support.py           # Support-focused mode
 │   │
 │   ├── providers/               # 🔌 Provider factories (STT/LLM/TTS)
 │   │   ├── __init__.py          # Exports get_stt(), get_llm(), get_tts()
-│   │   ├── stt_factory.py       # Google, Deepgram, ElevenLabs STT
-│   │   ├── llm_factory.py       # Gemini, OpenAI, Anthropic, Groq LLM
-│   │   └── tts_factory.py       # Google Chirp3-HD, ElevenLabs, Cartesia TTS
+│   │   ├── stt_factory.py       # Google, Azure, Deepgram, ElevenLabs, AssemblyAI
+│   │   ├── llm_factory.py       # Gemini, OpenAI, Anthropic, Groq, DeepSeek, Custom
+│   │   └── tts_factory.py       # Google, Gemini, Azure, ElevenLabs, OpenAI, Cartesia
 │   │
 │   └── tools/                   # 🛠️ Function tools (LLM calls these)
 │       ├── __init__.py
@@ -84,6 +90,31 @@ livekit-voice-agent/
 
 ---
 
+## 🤖 Agent Modes
+
+Switch agent personality by changing `AGENT_MODE` in `.env`:
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| `receptionist` | Front desk — greeting, routing, registration | General inbound calls |
+| `sales` | Outbound sales — lead qualification, product pitching | E-commerce, telecom |
+| `survey` | Customer satisfaction — NPS scoring, feedback collection | Post-service feedback |
+| `collections` | Payment reminders — billing inquiries, installment plans | Banks, ISPs, utilities |
+| `appointment` | Focused on scheduling — slot checking, booking, cancellation | Clinics, salons, offices |
+| `support` | Focused on tickets — troubleshooting, issue tracking | ISP, tech support |
+
+```env
+# Switch agent with one line:
+AGENT_MODE=receptionist   # Default
+AGENT_MODE=sales          # Outbound sales
+AGENT_MODE=survey         # Customer feedback
+AGENT_MODE=collections    # Payment reminders
+```
+
+All modes share the same Nusrat persona with Bengali conversation style, Islamic greetings, and the same 11 function tools.
+
+---
+
 ## 🛠️ Function Tools
 
 The agent has 11 tools that perform real actions:
@@ -101,6 +132,61 @@ The agent has 11 tools that perform real actions:
 | `transfer_to_department` | Route call to sales/support/billing | Logging (SIP in production) |
 | `escalate_to_human` | Escalate to human agent | Logging (SIP in production) |
 | `end_call` | End call with summary | Session control |
+
+---
+
+## ⚙️ Provider Configuration
+
+All providers are swappable via `.env` — no code changes needed.
+
+### STT (Speech-to-Text) — 5 Options
+
+| Provider | `.env` Value | Bengali Quality | Streaming | Cost |
+|----------|-------------|-----------------|-----------|------|
+| Google Cloud STT | `google` | ⭐⭐⭐⭐⭐ | ✅ | $0.024/min |
+| Azure Speech | `azure` | ⭐⭐⭐⭐ | ✅ | $0.016/min |
+| Deepgram Nova-3 | `deepgram` | ⭐⭐ | ✅ | $0.015/min |
+| ElevenLabs Scribe | `elevenlabs` | ⭐⭐⭐ | ✅ | Free tier |
+| AssemblyAI | `assemblyai` | ⭐⭐⭐ | ✅ | $0.015/min |
+
+### LLM (Language Model) — 6 Options
+
+| Provider | `.env` Value | Bengali Quality | Tool Calling | Cost |
+|----------|-------------|-----------------|-------------|------|
+| Google Gemini | `gemini` | ⭐⭐⭐⭐⭐ | ✅ | Cheapest |
+| OpenAI GPT | `openai` | ⭐⭐⭐⭐ | ✅ | $0.15/1M input |
+| Anthropic Claude | `anthropic` | ⭐⭐⭐⭐ | ✅ | $3/1M input |
+| Groq | `groq` | ⭐⭐⭐ | ✅ | Free tier |
+| DeepSeek | `deepseek` | ⭐⭐⭐⭐ | ✅ | Very cheap |
+| Custom (OpenAI-compatible) | `custom` | Varies | Varies | Self-hosted |
+
+The `custom` provider works with **any OpenAI-compatible API**: Ollama, vLLM, LM Studio, Together AI, Fireworks, OpenRouter, and self-hosted models like Llama 3.1, Qwen 3, Mistral, etc.
+
+### TTS (Text-to-Speech) — 7 Options
+
+| Provider | `.env` Value | Bengali Voice Quality | Streaming | Cost |
+|----------|-------------|----------------------|-----------|------|
+| Google Chirp3-HD | `google` | ⭐⭐⭐⭐ | ✅ | $4/1M chars |
+| Gemini TTS | `gemini` | ⭐⭐⭐ | ✅ | Cheap |
+| Azure Neural | `azure` | ⭐⭐⭐⭐ | ✅ | $16/1M chars |
+| ElevenLabs | `elevenlabs` | ⭐⭐⭐⭐⭐ | ✅ | $120/1M chars |
+| OpenAI TTS | `openai` | ⭐⭐ | ✅ | $15/1M chars |
+| Cartesia Sonic-3 | `cartesia` | ⭐⭐ | ✅ | Varies |
+| Custom | `custom` | Varies | Varies | Self-hosted |
+
+**Recommended stack for Bengali:** Google STT + Gemini LLM + Google Chirp3-HD TTS (best accuracy, lowest cost).
+
+```env
+# Example: Switch to Azure STT + DeepSeek LLM + Azure TTS
+STT_PROVIDER=azure
+LLM_PROVIDER=deepseek
+TTS_PROVIDER=azure
+
+AZURE_SPEECH_KEY=your-key
+AZURE_SPEECH_REGION=southeastasia
+AZURE_TTS_VOICE=bn-BD-NabanitaNeural
+DEEPSEEK_API_KEY=your-key
+```
 
 ---
 
@@ -140,64 +226,20 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+**Optional providers (install as needed):**
+```bash
+pip install livekit-plugins-azure        # Azure STT + TTS
+pip install livekit-plugins-assemblyai   # AssemblyAI STT
+```
+
 ### 3. Configure Environment
 
-Create `bangla-voice-agent/.env`:
-
-```env
-# ══════════════════════════════════════
-# Provider Selection (swap without code changes)
-# ══════════════════════════════════════
-STT_PROVIDER=google
-LLM_PROVIDER=gemini
-TTS_PROVIDER=google
-
-# ══════════════════════════════════════
-# Language & Mode
-# ══════════════════════════════════════
-LANGUAGE=bn-BD
-AGENT_MODE=receptionist
-
-# ══════════════════════════════════════
-# Google Cloud Credentials
-# ══════════════════════════════════════
-GOOGLE_APPLICATION_CREDENTIALS=gcloud-key.json
-GOOGLE_API_KEY=your-gemini-api-key
-
-# ══════════════════════════════════════
-# Google Sheets CRM
-# ══════════════════════════════════════
-GOOGLE_SHEET_ID=your-google-sheet-id
-
-# ══════════════════════════════════════
-# Google Calendar
-# ══════════════════════════════════════
-GOOGLE_CALENDAR_ID=your-calendar-id@group.calendar.google.com
-
-# ══════════════════════════════════════
-# Google Cloud TTS Voice
-# ══════════════════════════════════════
-GOOGLE_TTS_VOICE=bn-IN-Chirp3-HD-Kore
-GOOGLE_TTS_SPEAKING_RATE=1.0
-GOOGLE_TTS_PITCH=0.0
-
-# ══════════════════════════════════════
-# LiveKit Server
-# ══════════════════════════════════════
-LIVEKIT_URL=ws://localhost:7880
-LIVEKIT_API_KEY=devkey
-LIVEKIT_API_SECRET=secret
-
-# ══════════════════════════════════════
-# Background Audio
-# ══════════════════════════════════════
-BACKGROUND_AUDIO_ENABLED=true
-BACKGROUND_AUDIO_TYPE=office
-BACKGROUND_AUDIO_VOLUME=0.8
-THINKING_SOUND_ENABLED=true
-THINKING_SOUND_TYPE=typing2
-THINKING_SOUND_VOLUME=0.1
+```bash
+cp .env.example .env
+# Edit .env with your API keys
 ```
+
+See `.env.example` for all available configuration options.
 
 ### 4. Setup Google Sheets CRM
 
@@ -287,36 +329,6 @@ Nusrat: "আচ্ছা রাখি তাহলে। আর কিছু ল
 
 ---
 
-## ⚙️ Provider Configuration
-
-Swap any component by changing one line in `.env`:
-
-### STT (Speech-to-Text)
-| Provider | `.env` Value | Language Support |
-|----------|-------------|-----------------|
-| Google Cloud STT | `STT_PROVIDER=google` | bn-BD (Bengali) ✅ |
-| Deepgram | `STT_PROVIDER=deepgram` | Limited Bengali |
-| ElevenLabs | `STT_PROVIDER=elevenlabs` | Multilingual |
-
-### LLM (Language Model)
-| Provider | `.env` Value | Model |
-|----------|-------------|-------|
-| Google Gemini | `LLM_PROVIDER=gemini` | gemini-2.5-flash |
-| OpenAI | `LLM_PROVIDER=openai` | gpt-4o-mini |
-| Anthropic | `LLM_PROVIDER=anthropic` | claude-sonnet-4-5 |
-| Groq | `LLM_PROVIDER=groq` | qwen-qwq-32b |
-
-### TTS (Text-to-Speech)
-| Provider | `.env` Value | Voice |
-|----------|-------------|-------|
-| Google Chirp3-HD | `TTS_PROVIDER=google` | bn-IN-Chirp3-HD-Kore ✅ |
-| ElevenLabs | `TTS_PROVIDER=elevenlabs` | Multilingual v2 |
-| Cartesia | `TTS_PROVIDER=cartesia` | Custom voices |
-
-The recommended stack for Bengali is **Google STT + Gemini LLM + Google Chirp3-HD TTS** for best language accuracy and cost efficiency.
-
----
-
 ## 🔇 Silence Handling
 
 The agent detects when callers go silent and responds like a human would:
@@ -339,11 +351,10 @@ Built-in ambient sounds make calls feel like a real office:
 |-------|-------------|-------------|
 | Office | `office` | General office ambience |
 | City | `city` | Urban background |
-| Crowd | `crowded` | Busy room |
+| Crowd | `crowd` | Busy room |
 | Typing | `typing` / `typing2` | Keyboard sounds (thinking indicator) |
 | Hold Music | `hold_music` | Music while on hold |
 
-Configured via `.env`:
 ```env
 BACKGROUND_AUDIO_ENABLED=true
 BACKGROUND_AUDIO_TYPE=office
@@ -373,7 +384,7 @@ All 11 rounds of comprehensive testing passed:
 | End-to-End Customer Journey | 9 | ✅ Passed |
 | Stress & Stability | 3 | ✅ Passed |
 
-**29 tests, 11 tools, 0 crashes.**
+**29 tests, 11 tools, 6 agent modes, 0 crashes.**
 
 ---
 
@@ -386,7 +397,12 @@ All 11 rounds of comprehensive testing passed:
 - [x] Background audio (office ambience + thinking sounds)
 - [x] Goodbye detection & auto end-call
 - [x] Dynamic date awareness
-- [x] Comprehensive testing (11 rounds)
+- [x] 6 agent modes (receptionist, sales, survey, collections, appointment, support)
+- [x] 5 STT providers (Google, Azure, Deepgram, ElevenLabs, AssemblyAI)
+- [x] 6 LLM providers (Gemini, OpenAI, Anthropic, Groq, DeepSeek, Custom)
+- [x] 7 TTS providers (Google, Gemini, Azure, ElevenLabs, OpenAI, Cartesia, Custom)
+- [x] Custom OpenAI-compatible LLM endpoint support
+- [x] Comprehensive testing (11 rounds, 29 tests)
 - [ ] VPS deployment
 - [ ] SIP trunk integration (Bangladesh phone numbers)
 - [ ] Production frontend
@@ -399,11 +415,14 @@ All 11 rounds of comprehensive testing passed:
 | Component | Provider | Cost |
 |-----------|----------|------|
 | STT | Google Cloud | ~$0.024/min |
+| STT | Azure Speech | ~$0.016/min |
 | LLM | Gemini Flash | ~$0.01/1K tokens |
+| LLM | DeepSeek | ~$0.001/1K tokens |
 | TTS | Google Chirp3-HD | ~$4/1M characters |
-| TTS (alternative) | ElevenLabs | ~$120/1M characters |
+| TTS | Azure Neural | ~$16/1M characters |
+| TTS | ElevenLabs | ~$120/1M characters |
 
-Google Cloud TTS is approximately **40x cheaper** than ElevenLabs while providing good Bengali voice quality through the Chirp3-HD model.
+Google Cloud stack (STT + Gemini + TTS) is approximately **$0.03-0.05 per minute of conversation** — the most cost-effective option for Bengali.
 
 ---
 
@@ -413,7 +432,8 @@ This project is in active development. Contributions are welcome for:
 - Additional language support
 - New tool integrations
 - SIP trunk providers for Bangladesh
-- Local TTS model optimization
+- Local TTS/STT model optimization
+- New agent mode prompts
 
 ---
 
