@@ -4,12 +4,15 @@ A self-hosted, real-time Bengali (বাংলা) voice AI agent for call cente
 
 The agent persona is **Nusrat** (নুসরাত), a Bangladeshi receptionist who speaks natural Bengali, uses culturally appropriate greetings, and handles front-desk duties like a real human receptionist. She can switch between **6 different agent modes** — receptionist, sales, survey, collections, appointment, and support — with a single config change.
 
+> **🌐 Live Demo:** [https://landphoneai.duckdns.org](https://landphoneai.duckdns.org)
+> **📞 Call Nusrat:** +1 (774) 500-7904 (Twilio trial — verified callers only)
+
 ---
 
 ## 🎬 How It Works
 
 ```
-Caller speaks Bengali
+Caller speaks Bengali (Phone or Browser)
         │
         ▼
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
@@ -25,7 +28,14 @@ Caller speaks Bengali
                      └──────────────┘
 ```
 
-The agent uses LiveKit's room-based architecture for real-time bidirectional audio streaming. A browser-based playground serves as the test interface, with SIP trunk integration planned for production phone connectivity.
+### Two Ways to Talk to Nusrat
+
+| Method | How | Best For |
+|--------|-----|----------|
+| **Browser** | Open [https://landphoneai.duckdns.org](https://landphoneai.duckdns.org) → Click Connect | Development & testing |
+| **Phone Call** | Dial +1 (774) 500-7904 → Nusrat answers | Real-world MVP testing |
+
+The browser uses LiveKit's room-based architecture for real-time bidirectional audio streaming. Phone calls arrive via Twilio SIP trunk → LiveKit SIP service → LiveKit room → agent joins automatically.
 
 ---
 
@@ -35,6 +45,8 @@ The agent uses LiveKit's room-based architecture for real-time bidirectional aud
 - **6 agent modes** — receptionist, sales, survey, collections, appointment, support — switch via `.env`
 - **11 function tools** — real integrations with Google Sheets CRM and Google Calendar
 - **18 provider combinations** — 5 STT × 6 LLM × 7 TTS, all swappable via `.env`
+- **Phone call support** — real phone number via Twilio SIP trunk + LiveKit SIP
+- **Cloud deployed** — production VPS with HTTPS, accessible from anywhere
 - **Smart call flow** — automatic name/phone collection → customer lookup → registration → service
 - **Silence detection** — 3-tier nudge system that speaks up like a human when the caller goes silent
 - **Goodbye detection** — recognizes Bengali farewell phrases ("আচ্ছা রাখি", "রাখি তাহলে") and ends calls gracefully
@@ -82,11 +94,72 @@ livekit-voice-agent/
 │   ├── package.json
 │   └── ...
 │
-├── livekit/                     # 📡 LiveKit server binary
+├── custom-playground/           # 🎨 Custom branded frontend (Next.js fork)
+│   ├── src/                     # Customizable UI components
+│   ├── package.json
+│   └── ...
+│
+├── livekit/                     # 📡 LiveKit server binary & configs
 │   └── LICENSE
 │
-└── run.md                       # Quick-start run commands
+├── run.md                       # Quick-start commands (local development)
+├── run_vps.md                   # Quick-start commands (VPS production)
+└── siptrunk_runguide.md         # Complete SIP trunk setup guide
 ```
+
+---
+
+## 🌐 Deployment Architecture
+
+The production system runs on a Contabo Cloud VPS (4 cores, 8GB RAM, Ubuntu 24.04) with 5 services:
+
+```
+Internet
+   │
+   ▼
+Nginx (HTTPS, Let's Encrypt SSL)
+   │
+   ├── https://landphoneai.duckdns.org → Playground (Next.js, port 3000)
+   ├── wss://landphoneai.duckdns.org/rtc → LiveKit Server (port 7880)
+   └── wss://landphoneai.duckdns.org/twirp → LiveKit API (port 7880)
+
+Twilio Phone Number (+1 774 500 7904)
+   │
+   ▼ (SIP, port 5060)
+LiveKit SIP (Docker container)
+   │
+   ▼ (Redis)
+LiveKit Server (port 7880) ←→ Voice Agent (Python)
+```
+
+| Service | Technology | Port |
+|---------|-----------|------|
+| Reverse Proxy | Nginx + Let's Encrypt | 80, 443 |
+| LiveKit Server | Binary with Redis | 7880 |
+| Voice Agent | Python 3.11 | Internal |
+| Playground | Next.js (production build) | 3000 |
+| SIP Bridge | LiveKit SIP (Docker) | 5060 |
+| Message Bus | Redis | 6379 |
+
+---
+
+## 📞 SIP Trunk — Phone Call Integration
+
+Nusrat can answer real phone calls through Twilio SIP trunking:
+
+```
+Your Phone → Twilio Number → SIP → LiveKit SIP → LiveKit Room → Nusrat Agent
+```
+
+**Current Setup:**
+- Provider: Twilio (trial account with $15 free credit)
+- Number: +1 (774) 500-7904 (US number, Dighton, MA)
+- Protocol: SIP over UDP, port 5060
+- Routing: All calls go to LiveKit room `phone-call`, agent auto-joins
+
+**For complete setup instructions, see [`siptrunk_runguide.md`](siptrunk_runguide.md)** — a detailed plug-and-play guide covering Twilio setup, LiveKit SIP configuration, Redis, firewall rules, and troubleshooting.
+
+> **⚠️ Trial Limitation:** Twilio trial accounts only accept calls from verified phone numbers. Add your number at Twilio Console → Phone Numbers → Verified Caller IDs.
 
 ---
 
@@ -194,8 +267,8 @@ DEEPSEEK_API_KEY=your-key
 
 ### Prerequisites
 
-- **Python 3.10+** with virtual environment
-- **Node.js 18+** with pnpm
+- **Python 3.11+** with virtual environment
+- **Node.js 24+** with pnpm
 - **Google Cloud** service account with:
   - Speech-to-Text API enabled
   - Text-to-Speech API enabled
@@ -272,28 +345,50 @@ NEXT_PUBLIC_LIVEKIT_URL=ws://localhost:7880
 
 ### 7. Run Everything
 
-Open **3 terminals** and run simultaneously:
+See [`run.md`](run.md) for local development or [`run_vps.md`](run_vps.md) for VPS production.
 
-**Terminal 1 — LiveKit Server:**
+**Local Development (3 terminals):**
+
 ```bash
+# Terminal 1 — LiveKit Server
 cd livekit
-./livekit-server --dev
-```
+./livekit-server --dev          # Windows: ./livekit-server.exe --dev
 
-**Terminal 2 — Voice Agent:**
-```bash
+# Terminal 2 — Voice Agent
 cd bangla-voice-agent
-source .venv/Scripts/activate   # Windows
+source .venv/Scripts/activate   # Linux: source .venv/bin/activate
 python agent.py dev
-```
 
-**Terminal 3 — Playground Frontend:**
-```bash
+# Terminal 3 — Playground Frontend
 cd agents-playground
 pnpm dev
 ```
 
 Open **http://localhost:3000** in your browser, click Connect, and start talking in Bengali.
+
+**VPS Production (4 terminals):**
+
+```bash
+# Terminal 1 — LiveKit Server (with Redis for SIP support)
+cd /root/projects/livekit-voice-agent/livekit
+./livekit-server --config livekit-config.yaml
+
+# Terminal 2 — Voice Agent
+cd /root/projects/livekit-voice-agent/bangla-voice-agent
+source .venv/bin/activate
+python3.11 agent.py dev
+
+# Terminal 3 — Playground (production build)
+cd /root/projects/livekit-voice-agent/agents-playground
+pnpm start -H 0.0.0.0
+
+# Terminal 4 — SIP Service (phone calls)
+docker run -d --name livekit-sip --network host \
+  -v /root/projects/livekit-voice-agent/livekit/sip-config.yaml:/etc/sip.yaml \
+  livekit/sip --config /etc/sip.yaml
+```
+
+Open **https://landphoneai.duckdns.org** or call **+1 (774) 500-7904**.
 
 ---
 
@@ -403,14 +498,20 @@ All 11 rounds of comprehensive testing passed:
 - [x] 7 TTS providers (Google, Gemini, Azure, ElevenLabs, OpenAI, Cartesia, Custom)
 - [x] Custom OpenAI-compatible LLM endpoint support
 - [x] Comprehensive testing (11 rounds, 29 tests)
-- [ ] VPS deployment
-- [ ] SIP trunk integration (Bangladesh phone numbers)
-- [ ] Production frontend
+- [x] VPS deployment (Contabo, Ubuntu 24.04, HTTPS)
+- [x] Domain & SSL (landphoneai.duckdns.org, Let's Encrypt)
+- [x] SIP trunk integration (Twilio, real phone calls working)
+- [ ] Custom branded frontend
+- [ ] Systemd services (auto-restart on reboot)
+- [ ] Bangladesh phone number (local SIP trunk)
 - [ ] Local TTS model (fine-tuned Bangladeshi Bangla)
+- [ ] Multi-concurrent call handling
 
 ---
 
 ## 💰 Cost Analysis
+
+### Per-Minute Conversation Cost
 
 | Component | Provider | Cost |
 |-----------|----------|------|
@@ -424,6 +525,29 @@ All 11 rounds of comprehensive testing passed:
 
 Google Cloud stack (STT + Gemini + TTS) is approximately **$0.03-0.05 per minute of conversation** — the most cost-effective option for Bengali.
 
+### Infrastructure Cost
+
+| Component | Provider | Cost |
+|-----------|----------|------|
+| VPS | Contabo Cloud VPS 10 (4 core, 8GB RAM) | $4.95/month |
+| Domain | DuckDNS | Free |
+| SSL | Let's Encrypt | Free |
+| Phone Number | Twilio (US) | ~$1.15/month |
+| Inbound Calls | Twilio | ~$0.0085/min |
+
+**Total infrastructure: ~$6.10/month** for a fully functional voice AI call center.
+
+---
+
+## 📚 Documentation
+
+| File | Description |
+|------|-------------|
+| [`run.md`](run.md) | Local development startup commands (Windows) |
+| [`run_vps.md`](run_vps.md) | VPS production startup commands (Linux) |
+| [`siptrunk_runguide.md`](siptrunk_runguide.md) | Complete SIP trunk setup guide (Twilio + LiveKit) |
+| [`.env.example`](bangla-voice-agent/.env.example) | All environment variable options |
+
 ---
 
 ## 🤝 Contributing
@@ -434,6 +558,7 @@ This project is in active development. Contributions are welcome for:
 - SIP trunk providers for Bangladesh
 - Local TTS/STT model optimization
 - New agent mode prompts
+- Custom frontend improvements
 
 ---
 
@@ -448,6 +573,10 @@ MIT License — see [LICENSE](bangla-voice-agent/LICENSE) for details.
 - [LiveKit](https://livekit.io/) — Real-time communication framework
 - [Google Cloud](https://cloud.google.com/) — STT, TTS, Gemini, Sheets, Calendar APIs
 - [Silero VAD](https://github.com/snakers4/silero-vad) — Voice Activity Detection
+- [Twilio](https://www.twilio.com/) — SIP trunking & phone numbers
+- [Contabo](https://contabo.com/) — VPS hosting
+- [DuckDNS](https://www.duckdns.org/) — Free dynamic DNS
+- [Let's Encrypt](https://letsencrypt.org/) — Free SSL certificates
 
 ---
 
