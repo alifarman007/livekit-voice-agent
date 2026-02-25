@@ -1,0 +1,35 @@
+  Provider: Twilio Elastic SIP Trunking
+  Website:  https://www.twilio.com
+  BD +880:  ❌ Not available
+  Cost:     US number ~$1.15/mo, inbound ~$0.0085/min
+
+  Step 1: Log into Twilio Console → https://console.twilio.com
+
+  Step 2: Buy a phone number
+          Phone Numbers → Manage → Buy a Number
+          Select a number with Voice capability
+
+  Step 3: Create SIP Trunk
+          Explore Products → Elastic SIP Trunking → Trunks → Create new trunk
+          Name: "LiveKit-Agent"
+
+  Step 4: Configure Origination
+          Click your trunk → Origination tab → Add new Origination URI
+          URI: sip:{{VPS_IP}}:{{SIP_PORT}};transport=udp
+          Priority: 10, Weight: 10
+
+  Step 5: Associate Number
+          Click your trunk → Numbers tab → Add a Number
+          Select your purchased number
+
+  Step 6: Verify Voice Routing
+          Phone Numbers → Manage → Active Numbers → Click your number
+          Voice Configuration → Should show "SIP Trunk" (not "Webhook")
+          If it shows Webhook, change it to your SIP Trunk
+
+  Step 7: Verify Caller ID (Trial accounts ONLY)
+          Phone Numbers → Manage → Verified Caller IDs → Add new
+          Add the phone number you'll be calling FROM
+
+  ⚠️  Trial accounts: Only verified numbers can call your Twilio number.
+      Upgrade to paid account to remove this restriction.

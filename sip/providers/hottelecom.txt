@@ -1,0 +1,39 @@
+  Provider: HotTelecom
+  Website:  https://hottelecom.biz
+  BD +880:  ✅ Available (Bangladesh landline & mobile)
+  Cost:     BD number ~$5-15/mo (varies), free SIP account included
+
+  Step 1: Sign up at https://hottelecom.biz
+
+  Step 2: Buy a Bangladesh number
+          Virtual Numbers → Bangladesh → Select number type
+          Choose: Landline (+880-2-XXXX for Dhaka) or Mobile
+          Complete purchase (crypto payment available)
+
+  Step 3: Get SIP Credentials
+          After number is connected (usually within 24 hours):
+          Go to: SIP/IAX section in your personal account
+          Request SIP credentials if not auto-created
+          Note down: SIP server, username, password
+
+  Step 4: Configure Call Forwarding to SIP
+          In your HotTelecom dashboard → Your number settings
+          Set forwarding destination to SIP
+          Enter SIP URI: sip:{{VPS_IP}}:{{SIP_PORT}}
+
+          OR if they require registration-based forwarding:
+          Forward to their SIP account, then configure their SIP
+          to relay to your VPS IP
+
+  Step 5: Verify the setup
+          Call your +880 number from any phone
+          Check SIP logs: sip-manage.sh logs follow
+
+  ⚠️  HotTelecom numbers may take up to 24 hours to activate.
+  ⚠️  If direct SIP URI forwarding isn't available, contact their
+      support to set up SIP forwarding to your VPS IP.
+  ⚠️  Bangladesh numbers may require identity documents (passport/ID).
+
+  Alternative: If SIP forwarding to external IP doesn't work,
+  you may need to configure LiveKit SIP to register as a SIP
+  client to HotTelecom's server. Contact support for details.

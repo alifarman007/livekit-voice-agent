@@ -1,0 +1,46 @@
+  Provider: Custom / Any SIP Trunk Provider
+  Website:  (your provider)
+  BD +880:  Depends on provider
+
+  Any SIP trunk provider works with LiveKit SIP if they support:
+  ✅ Elastic or programmable SIP trunking
+  ✅ Custom origination URI (forward calls to your server)
+  ✅ UDP or TCP SIP transport
+
+  Step 1: Buy a phone number from your provider
+
+  Step 2: Create a SIP trunk in your provider's dashboard
+
+  Step 3: Configure the trunk to forward calls to your VPS
+          Origination URI: sip:{{VPS_IP}}:{{SIP_PORT}};transport=udp
+
+          Some providers call this:
+          - "Origination URI" (Twilio)
+          - "SIP Connection" (Telnyx)
+          - "Call Forwarding to SIP" (HotTelecom, Freezvon)
+          - "Inbound Route" (generic)
+          - "Trunk Destination" (generic)
+
+  Step 4: Associate your phone number with the trunk
+          The number must be linked to the trunk so incoming calls
+          get forwarded to your VPS instead of a webhook
+
+  Step 5: After provider setup, add the number to LiveKit:
+          sip-manage.sh add-number +XXXXXXXXXXXX
+
+  Step 6: Test by calling the number
+          sip-manage.sh logs follow
+
+  If your provider uses REGISTRATION mode instead of direct URI:
+  ───────────────────────────────────────────────────────────────
+  Some providers (especially smaller ones) require your server to
+  "register" to their SIP server rather than them pushing calls
+  to your IP. In this case, you'll need to modify the LiveKit SIP
+  config to include registration credentials. Refer to LiveKit
+  SIP documentation: https://docs.livekit.io/sip/
+
+  Common fields needed:
+  - SIP Server: (from your provider)
+  - Username: (from your provider)
+  - Password: (from your provider)
+  - Domain/Realm: (from your provider)

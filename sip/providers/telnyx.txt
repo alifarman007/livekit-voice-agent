@@ -1,0 +1,30 @@
+  Provider: Telnyx SIP Trunking
+  Website:  https://telnyx.com
+  BD +880:  ❌ Not available
+  Cost:     US number ~$1/mo, inbound ~$0.003/min (cheaper than Twilio)
+
+  Step 1: Sign up at https://portal.telnyx.com
+
+  Step 2: Buy a phone number
+          Numbers → Search & Buy → Select a number with Voice
+
+  Step 3: Create SIP Connection
+          Voice → SIP Connections → Create
+          Name: "LiveKit-Agent"
+          Connection Type: "Credentials" or "IP Authentication"
+          For IP Auth: Add your VPS IP {{VPS_IP}}
+
+  Step 4: Configure Outbound
+          In your SIP Connection → Outbound tab
+          This is for agent making calls (optional)
+
+  Step 5: Configure Inbound
+          In your SIP Connection → Inbound tab
+          Forward to: sip:{{VPS_IP}}:{{SIP_PORT}};transport=udp
+
+  Step 6: Assign Number to Connection
+          Numbers → Your number → Voice Settings
+          Connection: Select "LiveKit-Agent"
+
+  Note: Telnyx is often 40-60% cheaper than Twilio for the same
+        functionality. Good alternative for US/EU numbers.

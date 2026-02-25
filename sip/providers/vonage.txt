@@ -1,0 +1,32 @@
+  Provider: Vonage (formerly Nexmo)
+  Website:  https://www.vonage.com
+  BD +880:  ❌ Not available (outbound to BD supported)
+  Cost:     US number ~$1/mo, inbound ~$0.0039/min
+
+  Step 1: Sign up at https://dashboard.nexmo.com
+
+  Step 2: Buy a phone number
+          Numbers → Buy Numbers → Select country and features
+          Ensure Voice capability is enabled
+
+  Step 3: Create SIP Trunk
+          Voice → SIP Trunking → Create trunk
+          Name: "LiveKit-Agent"
+
+  Step 4: Configure Origination
+          Trunk settings → Origination
+          Add URI: sip:{{VPS_IP}}:{{SIP_PORT}};transport=udp
+
+  Step 5: Assign Number
+          Associate your purchased number with the SIP trunk
+
+  Step 6: Configure Voice Settings
+          Numbers → Your number → Voice settings
+          Forward to: SIP trunk "LiveKit-Agent"
+
+  Step 7: Verify
+          Call your number
+          Check: sip-manage.sh logs follow
+
+  Note: Vonage offers good rates for outbound calls to Bangladesh
+        (~$0.04/min) if you need the agent to call BD numbers.

@@ -1,0 +1,38 @@
+  Provider: Freezvon
+  Website:  https://freezvon.com
+  BD +880:  ✅ Available (Bangladesh virtual numbers)
+  Cost:     BD number ~$10-20/mo, free SIP account, setup fee varies
+
+  Step 1: Sign up at https://freezvon.com
+
+  Step 2: Buy a Bangladesh number
+          Virtual Numbers → Bangladesh → Select number
+          Choose subscription period
+          Provide required documents if prompted (ID/passport)
+          Complete payment
+
+  Step 3: Get SIP Account
+          After activation (within 24 hours):
+          A free SIP account is provided with the number
+          Go to your dashboard → SIP settings
+          Note: SIP server address, username, password
+
+  Step 4: Configure Call Forwarding
+          In your Freezvon dashboard → Your number → Forwarding settings
+          Set destination: SIP
+          Enter SIP URI: sip:{{VPS_IP}}:{{SIP_PORT}}
+
+          Freezvon supports forwarding to:
+          - SIP account (free)
+          - Phone number (paid per minute)
+          - Both simultaneously
+
+  Step 5: Verify
+          Call your +880 number
+          Check: sip-manage.sh logs follow
+
+  ⚠️  Default: 2 phone lines (concurrent calls). Additional lines ~$5 each.
+  ⚠️  Outgoing calls also available via their SIP account.
+  ⚠️  Bangladesh numbers may require identity documents.
+
+  Freezvon Support: Live chat on website, Skype, email, or phone.
