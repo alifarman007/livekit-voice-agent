@@ -1,42 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 
 const colors = require("tailwindcss/colors");
-const shades = [
-  "50",
-  "100",
-  "200",
-  "300",
-  "400",
-  "500",
-  "600",
-  "700",
-  "800",
-  "900",
-  "950",
-];
-const colorList = [
-  "gray",
-  "green",
-  "cyan",
-  "amber",
-  "violet",
-  "blue",
-  "rose",
-  "pink",
-  "teal",
-  "red",
-];
-const uiElements = [
-  "bg",
-  "selection:bg",
-  "border",
-  "text",
-  "hover:bg",
-  "hover:border",
-  "hover:text",
-  "ring",
-  "focus:ring",
-];
+const shades = ["50","100","200","300","400","500","600","700","800","900","950"];
+const colorList = ["gray","green","cyan","amber","violet","blue","rose","pink","teal","red"];
+const uiElements = ["bg","selection:bg","border","text","hover:bg","hover:border","hover:text","ring","focus:ring"];
 const customColors = {
   cyan: colors.cyan,
   green: colors.green,
@@ -65,11 +32,7 @@ for (const [name, color] of Object.entries(customColors)) {
 }
 
 const safelist = [
-  "bg-black",
-  "bg-white",
-  "transparent",
-  "object-cover",
-  "object-contain",
+  "bg-black", "bg-white", "transparent", "object-cover", "object-contain",
   ...shadowNames,
   ...textShadowNames,
   ...shades.flatMap((shade) => [
@@ -77,6 +40,13 @@ const safelist = [
       ...uiElements.flatMap((element) => [`${element}-${color}-${shade}`]),
     ]),
   ]),
+  // Dashboard animation classes
+  "animate-fade-in-up", "animate-fade-in-scale", "animate-pulse-ring",
+  "animate-pulse-dot", "animate-connecting-pulse", "animate-spin-slow",
+  "animate-bounce-dot-1", "animate-bounce-dot-2", "animate-bounce-dot-3",
+  "animate-bar-1", "animate-bar-2", "animate-bar-3", "animate-bar-4", "animate-bar-5",
+  "stagger-1", "stagger-2", "stagger-3", "stagger-4", "stagger-5", "stagger-6",
+  "frosted-glass", "glow-cyan", "glow-green", "glow-purple",
 ];
 
 module.exports = {
@@ -90,13 +60,13 @@ module.exports = {
       gray: colors.neutral,
       ...customColors,
     },
+    fontFamily: {
+      sans: ['"Plus Jakarta Sans"', '-apple-system', 'sans-serif'],
+      mono: ['"IBM Plex Mono"', 'monospace'],
+    },
     extend: {
-      dropShadow: {
-        ...textShadows,
-      },
-      boxShadow: {
-        ...customShadows,
-      },
+      dropShadow: { ...textShadows },
+      boxShadow: { ...customShadows },
       keyframes: {
         "fade-in-out": {
           "0%": { opacity: "0" },
