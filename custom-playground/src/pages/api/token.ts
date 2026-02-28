@@ -14,6 +14,8 @@ type TokenRequest = {
   participant_metadata?: string;
   participant_attributes?: Record<string, string>;
   room_config?: ReturnType<RoomConfiguration["toJson"]>;
+  // Dashboard metadata bridge — agent config from AgentBuilder
+  agent_config?: Record<string, unknown>;
 };
 
 // This route handler creates a token for a given room and participant
@@ -49,7 +51,22 @@ async function createToken(request: TokenRequest) {
   if (request.participant_attributes) {
     at.attributes = request.participant_attributes;
   }
-  if (request.room_config) {
+
+  // ═══════════════════════════════════════════════════════
+  // METADATA BRIDGE: If agent_config is provided (from dashboard),
+  // inject it as room metadata so agent.py can read it via
+  // ctx.room.metadata when it joins the room.
+  // ═══════════════════════════════════════════════════════
+  if (request.agent_config) {
+    const metadata = JSON.stringify(request.agent_config);
+    // Merge with existing room_config if any, or create new one
+    const existingConfig = request.room_config || {};
+    const roomConfig = {
+      ...existingConfig,
+      metadata: metadata,
+    };
+    at.roomConfig = RoomConfiguration.fromJson(roomConfig);
+  } else if (request.room_config) {
     at.roomConfig = RoomConfiguration.fromJson(request.room_config);
   }
 

@@ -9,10 +9,6 @@ Change LLM_PROVIDER in .env to swap:
   deepseek  -> DeepSeek (excellent Bengali, very cheap)
   custom    -> Any OpenAI-compatible API endpoint
               (Ollama, vLLM, LM Studio, Together AI, Fireworks, etc.)
-
-Supports dynamic override via `provider` and `model` parameters
-(used by dashboard metadata bridge).
-When None, falls back to .env config (default behavior).
 """
 
 from __future__ import annotations
@@ -34,17 +30,10 @@ from config import config
 logger = logging.getLogger("voice-agent.llm")
 
 
-def get_llm(provider: str | None = None, model: str | None = None) -> llm_module.LLM:
-    """Return the configured LLM instance.
+def get_llm() -> llm_module.LLM:
+    """Return the configured LLM instance based on .env settings."""
 
-    Args:
-        provider: Optional override from dashboard metadata.
-                  If None, uses LLM_PROVIDER from .env.
-        model:    Optional model name override from dashboard metadata.
-                  If None, uses the provider's default model from .env.
-    """
-
-    provider = (provider or config.llm_provider).lower()
+    provider = config.llm_provider.lower()
 
     # ─────────────────────────────────────
     # Google Gemini
@@ -52,10 +41,9 @@ def get_llm(provider: str | None = None, model: str | None = None) -> llm_module
     # Requires: GOOGLE_API_KEY
     # ─────────────────────────────────────
     if provider == "gemini":
-        model_name = model or config.gemini_model
-        logger.info(f"🧠 LLM: Google Gemini ({model_name})")
+        logger.info(f"🧠 LLM: Google Gemini ({config.gemini_model})")
         return google_plugin.LLM(
-            model=model_name,
+            model=config.gemini_model,
             api_key=config.google_api_key or None,
         )
 
@@ -65,10 +53,9 @@ def get_llm(provider: str | None = None, model: str | None = None) -> llm_module
     # Requires: OPENAI_API_KEY
     # ─────────────────────────────────────
     elif provider == "openai":
-        model_name = model or config.openai_model
-        logger.info(f"🧠 LLM: OpenAI ({model_name})")
+        logger.info(f"🧠 LLM: OpenAI ({config.openai_model})")
         return openai_plugin.LLM(
-            model=model_name,
+            model=config.openai_model,
             api_key=config.openai_api_key or None,
         )
 
@@ -83,10 +70,9 @@ def get_llm(provider: str | None = None, model: str | None = None) -> llm_module
                 "Anthropic LLM requires livekit-plugins-anthropic. "
                 "Install: pip install livekit-plugins-anthropic"
             )
-        model_name = model or config.anthropic_model
-        logger.info(f"🧠 LLM: Anthropic Claude ({model_name})")
+        logger.info(f"🧠 LLM: Anthropic Claude ({config.anthropic_model})")
         return anthropic_plugin.LLM(
-            model=model_name,
+            model=config.anthropic_model,
             api_key=config.anthropic_api_key or None,
         )
 
@@ -96,10 +82,9 @@ def get_llm(provider: str | None = None, model: str | None = None) -> llm_module
     # Requires: GROQ_API_KEY
     # ─────────────────────────────────────
     elif provider == "groq":
-        model_name = model or config.groq_model
-        logger.info(f"🧠 LLM: Groq ({model_name})")
+        logger.info(f"🧠 LLM: Groq ({config.groq_model})")
         return openai_plugin.LLM(
-            model=model_name,
+            model=config.groq_model,
             api_key=config.groq_api_key or None,
             base_url="https://api.groq.com/openai/v1",
         )
@@ -110,15 +95,14 @@ def get_llm(provider: str | None = None, model: str | None = None) -> llm_module
     # Requires: DEEPSEEK_API_KEY
     # ─────────────────────────────────────
     elif provider == "deepseek":
-        model_name = model or config.deepseek_model
-        logger.info(f"🧠 LLM: DeepSeek ({model_name})")
+        logger.info(f"🧠 LLM: DeepSeek ({config.deepseek_model})")
         if not config.deepseek_api_key:
             raise ValueError(
                 "DeepSeek requires DEEPSEEK_API_KEY in .env. "
                 "Get one at https://platform.deepseek.com/"
             )
         return openai_plugin.LLM(
-            model=model_name,
+            model=config.deepseek_model,
             api_key=config.deepseek_api_key,
             base_url=config.deepseek_base_url,
         )
@@ -134,19 +118,18 @@ def get_llm(provider: str | None = None, model: str | None = None) -> llm_module
     #   CUSTOM_LLM_API_KEY=not-needed
     # ─────────────────────────────────────
     elif provider == "custom":
-        model_name = model or config.custom_llm_model
         logger.info(
             f"🧠 LLM: Custom endpoint ({config.custom_llm_url}, "
-            f"model={model_name})"
+            f"model={config.custom_llm_model})"
         )
         return openai_plugin.LLM(
-            model=model_name,
+            model=config.custom_llm_model,
             api_key=config.custom_llm_api_key,
             base_url=config.custom_llm_url,
         )
 
     else:
         raise ValueError(
-            f"Unknown LLM provider: '{provider}'. "
+            f"Unknown LLM_PROVIDER: '{provider}'. "
             f"Valid options: gemini, openai, anthropic, groq, deepseek, custom"
         )

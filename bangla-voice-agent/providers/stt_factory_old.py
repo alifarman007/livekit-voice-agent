@@ -8,9 +8,6 @@ Change STT_PROVIDER in .env to swap:
   elevenlabs  -> ElevenLabs Scribe (multilingual)
   assemblyai  -> AssemblyAI Universal-2 (good accuracy)
   custom      -> Any custom STT endpoint
-
-Supports dynamic override via `provider` parameter (used by dashboard metadata bridge).
-When `provider` is None, falls back to .env config (default behavior).
 """
 
 from __future__ import annotations
@@ -46,15 +43,10 @@ from config import config
 logger = logging.getLogger("voice-agent.stt")
 
 
-def get_stt(provider: str | None = None) -> stt_module.STT:
-    """Return the configured STT instance.
+def get_stt() -> stt_module.STT:
+    """Return the configured STT instance based on .env settings."""
 
-    Args:
-        provider: Optional override from dashboard metadata.
-                  If None, uses STT_PROVIDER from .env (default behavior).
-    """
-
-    provider = (provider or config.stt_provider).lower()
+    provider = config.stt_provider.lower()
     language = config.language
 
     # ─────────────────────────────────────
@@ -165,6 +157,6 @@ def get_stt(provider: str | None = None) -> stt_module.STT:
 
     else:
         raise ValueError(
-            f"Unknown STT provider: '{provider}'. "
+            f"Unknown STT_PROVIDER: '{provider}'. "
             f"Valid options: google, azure, deepgram, elevenlabs, assemblyai, custom"
         )

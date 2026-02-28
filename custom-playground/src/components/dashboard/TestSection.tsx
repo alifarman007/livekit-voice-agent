@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BarVisualizer,
   SessionProvider,
@@ -11,25 +11,73 @@ import {
 import {
   ConnectionState,
   TokenSourceConfigurable,
-  TokenSource,
 } from "livekit-client";
+import type { AgentConfig } from "./agentTypes";
 
 type CallState = "idle" | "connecting" | "active";
 
 interface TestSectionProps {
   agentName?: string;
+  agentConfig?: AgentConfig | null;
 }
 
-export function TestSection({ agentName }: TestSectionProps) {
+export function TestSection({ agentName, agentConfig }: TestSectionProps) {
   const [callState, setCallState] = useState<CallState>("idle");
 
-  // Token source for LiveKit
+  // Use a ref so the token source always reads the LATEST config
+  // without re-creating the token source (which would break useSession)
+  const agentConfigRef = useRef(agentConfig);
+  agentConfigRef.current = agentConfig;
+
+  // Custom token source that injects agent_config into the POST body
+  // so token.ts can set it as room metadata for agent.py to read.
+  //
+  // LiveKit SDK calls tokenSource.fetch(payload) internally —
+  // we intercept this to add our agent_config field.
   const tokenSource = useMemo<TokenSourceConfigurable | undefined>(() => {
-    if (process.env.NEXT_PUBLIC_LIVEKIT_URL) {
-      return TokenSource.endpoint("/api/token");
-    }
-    return undefined;
-  }, []);
+    if (!process.env.NEXT_PUBLIC_LIVEKIT_URL) return undefined;
+
+    const source = {
+      fetch: async (payload: Record<string, unknown>) => {
+        const body: Record<string, unknown> = { ...payload };
+
+        // ═══════ METADATA BRIDGE ═══════
+        // Inject agent config from the dashboard AgentBuilder.
+        // token.ts will set this as room metadata.
+        // agent.py will read ctx.room.metadata and use dynamic config.
+        const cfg = agentConfigRef.current;
+        if (cfg) {
+          body.agent_config = {
+            system_prompt: cfg.systemPrompt,
+            first_message: cfg.firstMessage,
+            end_message: cfg.endMessage,
+            stt_provider: cfg.transcriber,
+            llm_provider: cfg.llmProvider,
+            llm_model: cfg.llmModel,
+            tts_provider: cfg.voiceProvider,
+            tts_voice: cfg.voice,
+            actions: cfg.actions,
+          };
+        }
+
+        const res = await window.fetch("/api/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) throw new Error(`Token request failed: ${res.status}`);
+        const data = await res.json();
+
+        return {
+          serverUrl: data.server_url as string,
+          participantToken: data.participant_token as string,
+        };
+      },
+    };
+
+    return source as unknown as TokenSourceConfigurable;
+  }, []); // No deps — uses ref for latest config
 
   if (!tokenSource) {
     return (

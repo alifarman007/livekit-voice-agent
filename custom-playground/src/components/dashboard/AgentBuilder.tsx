@@ -351,7 +351,7 @@ export function AgentBuilder({ agent, onChange, onBack, onSave }: AgentBuilderPr
             onToggle={toggleSection}
             accent={accent}
           >
-            <TestSection />
+            <TestSection agentConfig={agent} />
           </Section>
         </div>
       </div>

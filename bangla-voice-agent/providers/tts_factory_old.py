@@ -9,10 +9,6 @@ Change TTS_PROVIDER in .env to swap:
   openai      -> OpenAI TTS (tone control, limited Bengali)
   cartesia    -> Cartesia Sonic-3 (ultra-low latency)
   custom      -> Any custom TTS endpoint
-
-Supports dynamic override via `provider` and `voice` parameters
-(used by dashboard metadata bridge).
-When None, falls back to .env config (default behavior).
 """
 
 from __future__ import annotations
@@ -53,17 +49,10 @@ def _extract_language_from_voice(voice_name: str, fallback: str) -> str:
     return fallback
 
 
-def get_tts(provider: str | None = None, voice: str | None = None) -> tts_module.TTS:
-    """Return the configured TTS instance.
+def get_tts() -> tts_module.TTS:
+    """Return the configured TTS instance based on .env settings."""
 
-    Args:
-        provider: Optional override from dashboard metadata.
-                  If None, uses TTS_PROVIDER from .env.
-        voice:    Optional voice name override from dashboard metadata.
-                  If None, uses the provider's default voice from .env.
-    """
-
-    provider = (provider or config.tts_provider).lower()
+    provider = config.tts_provider.lower()
 
     # ─────────────────────────────────────
     # Google Cloud TTS (Chirp3-HD)
@@ -71,12 +60,11 @@ def get_tts(provider: str | None = None, voice: str | None = None) -> tts_module
     # Requires: GOOGLE_APPLICATION_CREDENTIALS
     # ─────────────────────────────────────
     if provider == "google":
-        voice_name = voice or config.google_tts_voice
         tts_language = _extract_language_from_voice(
-            voice_name, config.language
+            config.google_tts_voice, config.language
         )
         logger.info(
-            f"🔊 TTS: Google Cloud ({voice_name}, language={tts_language})"
+            f"🔊 TTS: Google Cloud ({config.google_tts_voice}, language={tts_language})"
         )
         creds_file = config.google_credentials
         if not creds_file:
@@ -85,7 +73,7 @@ def get_tts(provider: str | None = None, voice: str | None = None) -> tts_module
                 "pointing to your service account JSON file in .env"
             )
         return google_plugin.TTS(
-            voice_name=voice_name,
+            voice_name=config.google_tts_voice,
             language=tts_language,
             speaking_rate=config.google_tts_speaking_rate,
             pitch=config.google_tts_pitch,
@@ -97,10 +85,9 @@ def get_tts(provider: str | None = None, voice: str | None = None) -> tts_module
     # Requires: GOOGLE_API_KEY
     # ─────────────────────────────────────
     elif provider == "gemini":
-        voice_name = voice or "Kore"
-        logger.info(f"🔊 TTS: Gemini TTS (voice={voice_name})")
+        logger.info("🔊 TTS: Gemini TTS (expressive)")
         return google_plugin.TTS(
-            voice_name=voice_name,
+            voice_name="Kore",
             api_key=config.google_api_key or None,
         )
 
@@ -119,15 +106,14 @@ def get_tts(provider: str | None = None, voice: str | None = None) -> tts_module
             raise ValueError(
                 "Azure TTS requires AZURE_SPEECH_KEY and AZURE_SPEECH_REGION in .env"
             )
-        voice_name = voice or config.azure_tts_voice
         logger.info(
-            f"🔊 TTS: Azure Neural ({voice_name}, "
+            f"🔊 TTS: Azure Neural ({config.azure_tts_voice}, "
             f"region={config.azure_speech_region})"
         )
         return azure_plugin.TTS(
             speech_key=config.azure_speech_key,
             speech_region=config.azure_speech_region,
-            voice=voice_name,
+            voice=config.azure_tts_voice,
         )
 
     # ─────────────────────────────────────
@@ -145,14 +131,13 @@ def get_tts(provider: str | None = None, voice: str | None = None) -> tts_module
         LANG_MAP = {"bn": "ben", "en": "eng", "hi": "hin", "ar": "ara", "ur": "urd"}
         lang_short = config.language.split("-")[0]
         lang_code = LANG_MAP.get(lang_short, lang_short)
-        voice_id = voice or config.eleven_voice_id
         logger.info(
             f"🔊 TTS: ElevenLabs ({config.eleven_model}, "
-            f"voice={voice_id}, lang={lang_code})"
+            f"voice={config.eleven_voice_id}, lang={lang_code})"
         )
         return elevenlabs_plugin.TTS(
             api_key=config.eleven_api_key or None,
-            voice_id=voice_id,
+            voice_id=config.eleven_voice_id,
             model=config.eleven_model,
             language=lang_code,
         )
@@ -163,11 +148,10 @@ def get_tts(provider: str | None = None, voice: str | None = None) -> tts_module
     # Requires: OPENAI_API_KEY
     # ─────────────────────────────────────
     elif provider == "openai":
-        voice_name = voice or "coral"
-        logger.info(f"🔊 TTS: OpenAI (gpt-4o-mini-tts, voice={voice_name})")
+        logger.info("🔊 TTS: OpenAI (gpt-4o-mini-tts with tone control)")
         return openai_plugin.TTS(
             model="gpt-4o-mini-tts",
-            voice=voice_name,
+            voice="coral",
             instructions="Speak in a warm, friendly, and professional tone. "
             "Match the emotional context of what you are saying.",
         )
@@ -206,6 +190,6 @@ def get_tts(provider: str | None = None, voice: str | None = None) -> tts_module
 
     else:
         raise ValueError(
-            f"Unknown TTS provider: '{provider}'. "
+            f"Unknown TTS_PROVIDER: '{provider}'. "
             f"Valid options: google, gemini, azure, elevenlabs, openai, cartesia, custom"
         )

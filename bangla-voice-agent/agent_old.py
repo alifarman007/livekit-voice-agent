@@ -5,19 +5,11 @@ Usage:
   Console mode (mic/speaker):  python agent.py console
   Room mode (dev/playground):  python agent.py dev
   Production:                  python agent.py start
-
-METADATA BRIDGE:
-  When a call comes from the dashboard (browser), the room carries
-  metadata with the agent config (prompt, providers, model, voice).
-  When a call comes from SIP (phone), there's no metadata — we
-  fall back to the .env defaults. This gives you one agent.py
-  that serves both use cases.
 """
 
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 
 from livekit.agents import (
@@ -90,32 +82,7 @@ from tools.transfer import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("voice-agent")
 
-# ═══════════════════════════════════════════════════════
-# TOOLS — organized by action category for dashboard filtering
-# ═══════════════════════════════════════════════════════
-TOOLS_BY_ACTION = {
-    "bookAppointment": [
-        check_available_slots,
-        book_appointment,
-        cancel_appointment,
-        get_next_available,
-    ],
-    "updateSheet": [
-        register_customer,
-        lookup_customer,
-        update_customer_notes,
-        create_support_ticket,
-    ],
-    "transferCall": [
-        transfer_to_department,
-        escalate_to_human,
-    ],
-    "endCall": [
-        end_call,
-    ],
-}
-
-# ALL tools — used when no action filtering is specified (SIP/phone calls)
+# ALL tools — passed to Agent so the LLM can actually call them
 ALL_TOOLS = [
     register_customer,
     lookup_customer,
@@ -182,40 +149,15 @@ def _build_background_audio() -> BackgroundAudioPlayer | None:
     )
 
 
-def _parse_dashboard_config(metadata: str | None) -> dict | None:
-    """Parse room metadata JSON from dashboard. Returns None if not from dashboard."""
-    if not metadata:
-        return None
-    try:
-        data = json.loads(metadata)
-        # Only treat as dashboard config if it has our marker fields
-        if "system_prompt" in data or "llm_provider" in data or "stt_provider" in data:
-            logger.info("📋 Dashboard config found in room metadata")
-            return data
-        return None
-    except (json.JSONDecodeError, TypeError):
-        return None
-
-
-def _get_tools_for_actions(actions: dict | None) -> list:
-    """Filter tools based on dashboard action toggles.
-
-    If actions is None (SIP call), returns ALL tools.
-    If actions is provided, only includes tools for enabled actions.
-    """
-    if actions is None:
-        return ALL_TOOLS
-
-    tools = []
-    for action_key, action_tools in TOOLS_BY_ACTION.items():
-        if actions.get(action_key, True):  # Default to enabled
-            tools.extend(action_tools)
-
-    # Always include at least end_call so the agent can hang up
-    if end_call not in tools:
-        tools.append(end_call)
-
-    return tools
+class BanglaVoiceAgent(Agent):
+    def __init__(self) -> None:
+        super().__init__(
+            instructions=get_prompt(
+                mode=config.agent_mode,
+                company_name="আমাদের কোম্পানি",  # ← Change to your company name
+            ),
+            tools=ALL_TOOLS,
+        )
 
 
 server = AgentServer()
@@ -226,68 +168,14 @@ async def entrypoint(ctx: JobContext):
     config.print_config()
 
     # ═══════════════════════════════════════════════════════
-    # METADATA BRIDGE — check if this call came from dashboard
-    # ═══════════════════════════════════════════════════════
-    await ctx.connect()
-
-    dashboard_config = _parse_dashboard_config(ctx.room.metadata)
-
-    if dashboard_config:
-        # ─── DASHBOARD CALL: use dynamic config from frontend ───
-        logger.info("🌐 Source: Dashboard (browser) — using dynamic config")
-
-        stt_provider = dashboard_config.get("stt_provider")
-        llm_provider = dashboard_config.get("llm_provider")
-        llm_model = dashboard_config.get("llm_model")
-        tts_provider = dashboard_config.get("tts_provider")
-        tts_voice = dashboard_config.get("tts_voice")
-        system_prompt = dashboard_config.get("system_prompt", "")
-        first_message = dashboard_config.get("first_message", "")
-        actions = dashboard_config.get("actions")
-
-        logger.info(f"  📝 STT: {stt_provider or '(env default)'}")
-        logger.info(f"  🧠 LLM: {llm_provider or '(env default)'} / {llm_model or '(env default)'}")
-        logger.info(f"  🔊 TTS: {tts_provider or '(env default)'} / {tts_voice or '(env default)'}")
-        logger.info(f"  📄 Prompt: {system_prompt[:80]}..." if system_prompt else "  📄 Prompt: (env default)")
-
-        stt_instance = get_stt(provider=stt_provider)
-        llm_instance = get_llm(provider=llm_provider, model=llm_model)
-        tts_instance = get_tts(provider=tts_provider, voice=tts_voice)
-        tools = _get_tools_for_actions(actions)
-
-        # Use custom prompt if provided, otherwise fall back to .env agent mode
-        if system_prompt and system_prompt.strip():
-            agent_instructions = system_prompt
-        else:
-            agent_instructions = get_prompt(
-                mode=config.agent_mode,
-                company_name="আমাদের কোম্পানি",
-            )
-
-    else:
-        # ─── SIP/PHONE CALL: use .env defaults (original behavior) ───
-        logger.info("📞 Source: SIP/Phone — using .env defaults")
-
-        stt_instance = get_stt()
-        llm_instance = get_llm()
-        tts_instance = get_tts()
-        tools = ALL_TOOLS
-        first_message = ""
-
-        agent_instructions = get_prompt(
-            mode=config.agent_mode,
-            company_name="আমাদের কোম্পানি",
-        )
-
-    # ═══════════════════════════════════════════════════════
     # SILENCE HANDLING — makes the agent behave like a human
     # ═══════════════════════════════════════════════════════
 
     session = AgentSession(
         vad=silero.VAD.load(),
-        stt=stt_instance,
-        llm=llm_instance,
-        tts=tts_instance,
+        stt=get_stt(),
+        llm=get_llm(),
+        tts=get_tts(),
         user_away_timeout=10.0,  # 10 seconds of silence = nudge
     )
 
@@ -305,6 +193,12 @@ async def entrypoint(ctx: JobContext):
         # Nudge 3: Polite goodbye
         "কলার উত্তর দিচ্ছে না। ভদ্রভাবে বিদায় নাও: 'ঠিক আছে, মনে হচ্ছে লাইনে সমস্যা হচ্ছে। আপনি আবার কল দিবেন। আসসালামু আলাইকুম।' — তারপর end_call টুল কল করো।",
     ]
+
+    # ─────────────────────────────────────────────────────
+    # FIX: In LiveKit Agents v1.4.x, session.generate_reply()
+    # returns a SpeechHandle (NOT a coroutine), so we call it
+    # directly — no asyncio.create_task / loop.create_task.
+    # ─────────────────────────────────────────────────────
 
     @session.on("user_state_changed")
     def _on_user_state(ev: UserStateChangedEvent):
@@ -328,15 +222,12 @@ async def entrypoint(ctx: JobContext):
             logger.info(f"🔊 User spoke again — resetting silence counter")
             nudge_count = 0
 
-    # Create agent with resolved instructions and tools
-    agent = Agent(
-        instructions=agent_instructions,
-        tools=tools,
-    )
+    # Connect and start
+    await ctx.connect()
 
     await session.start(
         room=ctx.room,
-        agent=agent,
+        agent=BanglaVoiceAgent(),
     )
 
     # ═══════════════════════════════════════════════════════
@@ -348,30 +239,15 @@ async def entrypoint(ctx: JobContext):
         await bg_audio.start(room=ctx.room, agent_session=session)
         logger.info("🔊 Background audio started")
 
-    # ═══════════════════════════════════════════════════════
-    # FIRST GREETING
-    # Dashboard: uses custom first_message if provided
-    # SIP/Phone: uses default salam greeting
-    # ═══════════════════════════════════════════════════════
-    if first_message and first_message.strip():
-        # Dashboard custom greeting — speak the exact first_message
-        await session.generate_reply(
-            instructions=(
-                f"কলারকে ঠিক এই কথাটা বলো, কোনো কিছু বাদ দিবে না বা যোগ করবে না: "
-                f"'{first_message}'"
-            )
+    # First greeting — always Islamic salam, then ask for name
+    await session.generate_reply(
+        instructions=(
+            "আসসালামু আলাইকুম বলে কলারকে সালাম দাও। "
+            "নিজের পরিচয় দাও — তুমি নুসরাত, এই কোম্পানির রিসেপশনিস্ট। "
+            "তারপর কলারের নাম জিজ্ঞেস করো। "
+            "২ লাইনের বেশি বলো না।"
         )
-        logger.info(f"🎙️ Custom first message: {first_message[:60]}...")
-    else:
-        # Default salam greeting (original behavior)
-        await session.generate_reply(
-            instructions=(
-                "আসসালামু আলাইকুম বলে কলারকে সালাম দাও। "
-                "নিজের পরিচয় দাও — তুমি নুসরাত, এই কোম্পানির রিসেপশনিস্ট। "
-                "তারপর কলারের নাম জিজ্ঞেস করো। "
-                "২ লাইনের বেশি বলো না।"
-            )
-        )
+    )
 
     logger.info("🎙️ Agent session started — silence monitor active")
 
